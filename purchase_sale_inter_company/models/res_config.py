@@ -33,3 +33,4 @@ class InterCompanyRulesConfig(models.TransientModel):
         "order in another company.",
         readonly=False,
     )
+    
