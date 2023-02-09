@@ -23,6 +23,19 @@ class SaleOrder(models.Model):
                     line.auto_purchase_line_id.price_unit = line.price_unit
         return super().action_confirm()
 
+    
+    def action_cancel(self):
+        purchase_orders = (
+            self.env["purchase.order"]
+            .sudo()
+            .search([("auto_sale_order_id", "in", self.ids)])
+        )
+        for po in purchase_orders:
+            if po.state not in ["draft", "sent", "cancel"]:
+                raise UserError(_("You can't cancel an order that is %s") % po.state)
+        if purchase_orders:
+            purchase_orders.button_cancel()
+        return super().action_cancel()
 
 class SaleOrderLine(models.Model):
     _inherit = "sale.order.line"
