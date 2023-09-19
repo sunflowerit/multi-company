@@ -19,15 +19,9 @@ class SaleOrder(models.Model):
                 for line in order.order_line.sudo():
                     if line.auto_purchase_line_id:
                         line.auto_purchase_line_id.price_unit = line.price_unit
-        res = super(SaleOrder, self).action_confirm()
+        res = super().action_confirm()
         for sale_order in self.sudo():
-            # Do not consider SO created from intercompany PO
             dest_company = sale_order.partner_id.ref_company_ids
-            if not sale_order.auto_purchase_order_id:
-                if dest_company and dest_company.po_from_so:
-                    sale_order.with_context(
-                        force_company=dest_company.id
-                    )._inter_company_create_purchase_order(dest_company)
             if (
                 sale_order.auto_purchase_order_id
                 and dest_company
@@ -35,8 +29,8 @@ class SaleOrder(models.Model):
             ):
                 pickings = sale_order.picking_ids
                 po_company = sale_order.sudo().auto_purchase_order_id.company_id
-                purchase_picking = sale_order.auto_purchase_order_id.sudo(
-                    po_company.intercompany_user_id.id
+                purchase_picking = sale_order.auto_purchase_order_id.with_user(
+                    po_company.intercompany_sale_user_id.id
                 ).picking_ids
 
                 if len(pickings) == len(purchase_picking) == 1:
@@ -49,23 +43,23 @@ class SaleOrder(models.Model):
                     # thus we need to recreate new moves and moves lines, as they differ
                     purchase_moves = purchase_picking.move_ids_without_package
                     purchase_move_lines = purchase_picking.move_line_ids_without_package
-                    new_pickings = self.env["stock.picking"].sudo(
-                        po_company.intercompany_user_id.id
+                    new_pickings = self.env["stock.picking"].with_user(
+                        po_company.intercompany_sale_user_id.id
                     )
                     for i, pick in enumerate(pickings):
                         moves = pick.move_ids_without_package
-                        new_moves = self.env["stock.move"].sudo(
-                            po_company.intercompany_user_id.id
+                        new_moves = self.env["stock.move"].with_user(
+                            po_company.intercompany_sale_user_id.id
                         )
-                        new_move_lines = self.env["stock.move.line"].sudo(
-                            po_company.intercompany_user_id.id
+                        new_move_lines = self.env["stock.move.line"].with_user(
+                            po_company.intercompany_sale_user_id.id
                         )
                         for move in moves:
                             purchase_move = purchase_moves.filtered(
                                 lambda m: m.product_id.id == move.product_id.id
                             )
-                            new_move = purchase_move.sudo(
-                                po_company.intercompany_user_id.id
+                            new_move = purchase_move.with_user(
+                                po_company.intercompany_sale_user_id.id
                             ).copy(
                                 {
                                     "picking_id": purchase_picking.id
@@ -91,8 +85,8 @@ class SaleOrder(models.Model):
                                 purchase_move_line = purchase_move_lines.filtered(
                                     lambda l: l.product_id.id == move_line.product_id.id
                                 )[:1]
-                                new_move_line = purchase_move_line.sudo(
-                                    po_company.intercompany_user_id.id
+                                new_move_line = purchase_move_line.with_user(
+                                    po_company.intercompany_sale_user_id.id
                                 ).copy(
                                     {
                                         "picking_id": purchase_picking.id
@@ -109,8 +103,8 @@ class SaleOrder(models.Model):
                                 new_move_line._update_extra_data_in_move_line(move_line)
                                 new_move_lines |= new_move_line
                         if i == 0:
-                            purchase_picking.sudo(
-                                purchase_picking.company_id.intercompany_user_id.id
+                            purchase_picking.with_user(
+                                purchase_picking.company_id.intercompany_sale_user_id.id
                             ).write(
                                 {
                                     "intercompany_picking_id": pick.id,
@@ -121,8 +115,8 @@ class SaleOrder(models.Model):
                             )
                             new_pick = purchase_picking
                         else:
-                            new_pick = purchase_picking.sudo(
-                                po_company.intercompany_user_id.id
+                            new_pick = purchase_picking.with_user(
+                                po_company.intercompany_sale_user_id.id
                             ).copy(
                                 {
                                     "move_ids_without_package": [
