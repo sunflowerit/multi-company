@@ -66,6 +66,24 @@ class TestPurchaseSaleStockInterCompany(TestPurchaseSaleInterCompany):
             self.purchase_company_a.picking_type_id.warehouse_id.partner_id,
         )
         self.assertEqual(sale.warehouse_id, self.warehouse_c)
+    
+    def test_confirm_several_picking(self):
+        """
+        Ensure that confirming several picking is not broken
+        """
+        purchase_1 = self._create_purchase_order(
+            self.partner_company_b, self.consumable_product
+        )
+        purchase_2 = self._create_purchase_order(
+            self.partner_company_b, self.consumable_product
+        )
+        sale_1 = self._approve_po(purchase_1)
+        sale_2 = self._approve_po(purchase_2)
+        pickings = sale_1.picking_ids | sale_2.picking_ids
+        for move in pickings.move_lines:
+            move.quantity_done = move.product_uom_qty
+        pickings.button_validate()
+        self.assertEqual(pickings.mapped("state"), ["done", "done"])
 
     def test_sync_picking(self):
         self.company_a.sync_picking = True
