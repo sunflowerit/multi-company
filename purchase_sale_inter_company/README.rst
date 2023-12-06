@@ -37,6 +37,10 @@ Imagine you have company A and company B in the same Odoo database:
 * Company A will create a purchase order with company B as supplier.
 * This module automate the creation of the sale order in company B with company A as customer.
 
+It allows to create a sale order in company A from a purchase order in company B, and keep delivery/receipt pickings synced, including backorders.
+
+When Company A sends a product tracked by lot or serial number, a new lot/serial number with the same name is created in Company B to match it, if one doesn't already exist.
+
 **Table of contents**
 
 .. contents::
@@ -129,6 +133,11 @@ Contributors
 * `Camptocamp <https://www.camptocamp.com>`:
 
   * Maksym Yankin <maksym.yankin@camptocamp.com>
+  * Alessandro Uffreduzzi <alessandro.uffreduzzi@pytech.it>
+
+* Ooops404 <info@ooops404.com>
+
+  * Francesco Foresti <francesco.foresti@ooops404.com>
 
 Maintainers
 ~~~~~~~~~~~
@@ -142,6 +151,17 @@ This module is maintained by the OCA.
 OCA, or the Odoo Community Association, is a nonprofit organization whose
 mission is to support the collaborative development of Odoo features and
 promote its widespread use.
+
+.. |maintainer-aleuffre| image:: https://github.com/aleuffre.png?size=40px
+    :target: https://github.com/aleuffre
+    :alt: aleuffre
+.. |maintainer-renda-dev| image:: https://github.com/renda-dev.png?size=40px
+    :target: https://github.com/renda-dev
+    :alt: renda-dev
+
+Current `maintainers <https://odoo-community.org/page/maintainer-role>`__:
+
+|maintainer-aleuffre| |maintainer-renda-dev| 
 
 This module is part of the `OCA/multi-company <https://github.com/OCA/multi-company/tree/15.0/purchase_sale_inter_company>`_ project on GitHub.
 

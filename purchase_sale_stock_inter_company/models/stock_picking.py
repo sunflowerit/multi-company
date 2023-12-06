@@ -2,7 +2,7 @@
 # Copyright 2018 Tecnativa - Pedro M. Baeza
 # License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl).
 
-from odoo import _, api, fields, models
+from odoo import SUPERUSER_ID, _, api, fields, models
 from odoo.exceptions import UserError
 
 
@@ -21,24 +21,90 @@ class StockPicking(models.Model):
             purchase.picking_ids.write({"intercompany_picking_id": pick.id})
             if not pick.intercompany_picking_id and purchase.picking_ids[0]:
                 pick.write({"intercompany_picking_id": purchase.picking_ids[0]})
-            for move_line in pick.move_line_ids:
-                sale_line_id = move_line.move_id.sale_line_id
-                po_move_lines = sale_line_id.auto_purchase_line_id.move_ids.mapped(
-                    "move_line_ids"
-                )
-                if not po_move_lines:
-                    raise UserError(
-                        _(
-                            "There's no corresponding line in PO %(purchase)s for assigning "
-                            "qty from %(picking)s for product %(product)s"
-                        )
-                        % {
-                            "purchase": purchase.name,
-                            "picking": pick.name,
-                            "product": move_line.product_id.name,
-                        }
-                    )
+            pick._action_done_intercompany_actions(purchase)
         return super()._action_done()
+
+    def _action_done_intercompany_actions(self, purchase):
+        self.ensure_one()
+        try:
+            pick = self
+            for move in pick.move_lines:
+                move_lines = move.move_line_ids
+                po_move_lines = (
+                    move.sale_line_id.auto_purchase_line_id.move_ids.filtered(
+                        lambda x, ic_pick=pick.intercompany_picking_id: x.picking_id
+                        == ic_pick
+                    ).mapped("move_line_ids")
+                )
+                if len(move_lines) != len(po_move_lines):
+                    note = (
+                        "Mismatch between move lines with the "
+                        "corresponding  PO %(purchase)s for assigning "
+                        "quantities and lots from %(picking)s for product %(product)s"
+                    ) % {
+                        "purchase": purchase.name,
+                        "picking": pick.name,
+                        "product": move.product_id.name,
+                    }
+                    self.activity_schedule(
+                        "mail.mail_activity_data_warning",
+                        fields.Date.today(),
+                        note=note,
+                        # Try to notify someone relevant
+                        user_id=(
+                            pick.sale_id.user_id.id
+                            or pick.sale_id.team_id.user_id.id
+                            or SUPERUSER_ID,
+                        ),
+                    )
+                # check and assign lots here
+                for ml, po_ml in zip(move_lines, po_move_lines):
+                    lot_id = ml.lot_id
+                    if not lot_id:
+                        continue
+                    # search if the same lot exists in destination company
+                    dest_lot_id = (
+                        self.env["stock.production.lot"]
+                        .sudo()
+                        .search(
+                            [
+                                ("product_id", "=", lot_id.product_id.id),
+                                ("name", "=", lot_id.name),
+                                ("company_id", "=", po_ml.company_id.id),
+                            ],
+                            limit=1,
+                        )
+                    )
+                    if not dest_lot_id:
+                        # if it doesn't exist, create it by copying from original company
+                        dest_lot_id = lot_id.copy({"company_id": po_ml.company_id.id})
+                    po_ml.lot_id = dest_lot_id
+
+        except Exception:
+            if self.env.company_id.sync_picking_failure_action == "raise":
+                raise
+            else:
+                self._notify_picking_problem(purchase)
+
+    def _notify_picking_problem(self, purchase):
+        self.ensure_one()
+        note = _(
+            "Failure to confirm picking for PO %(purchase)s. "
+            "Original picking %(stock)s still confirmed, please check "
+            "the other side manually."
+        ) % {"purchase": purchase.name, "stock": self.name}
+        self.activity_schedule(
+            "mail.mail_activity_data_warning",
+            fields.Date.today(),
+            note=note,
+            # Try to notify someone relevant
+            user_id=(
+                self.company_id.notify_user_id.id
+                or self.sale_id.user_id.id
+                or self.sale_id.team_id.user_id.id
+                or SUPERUSER_ID,
+            ),
+        )
 
     def button_validate(self):
         res = super().button_validate()

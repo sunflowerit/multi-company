@@ -58,7 +58,7 @@ class TestPurchaseSaleInterCompany(TestAccountInvoiceInterCompanyBase):
         cls.consumable_product = cls.env["product.product"].create(
             {
                 "name": "Consumable Product",
-                "type": "product",
+                "type": "consu",
                 "categ_id": cls.env.ref("product.product_category_all").id,
                 "qty_available": 100,
             }
