@@ -199,6 +199,7 @@ class TestPurchaseSaleInterCompany(TestAccountInvoiceInterCompanyBase):
         it's open.
         """
         purchase = self.purchase_company_a
+
         sale = self._approve_po(purchase)
         sale.action_confirm()
         # Now we add an extra product to the PO and it will show up in the SO

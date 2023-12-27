@@ -11,6 +11,27 @@ class StockPicking(models.Model):
 
     intercompany_picking_id = fields.Many2one(comodel_name="stock.picking", copy=False)
 
+    @api.depends("intercompany_picking_id.state")
+    def _compute_state(self):
+        """
+        If the picking is inter-company, it's an 'incoming'
+        type of picking, and it has not been validated nor canceled
+        we compute it's state based on the other picking state
+        """
+        res = super()._compute_state()
+        for picking in self:
+            if (
+                picking.intercompany_picking_id
+                and picking.picking_type_code == "incoming"
+                and picking.state not in ["done", "cancel"]
+            ):
+                if picking.intercompany_picking_id.state in ["confirmed", "assigned"]:
+                    picking.state = "waiting"
+                else:
+                    picking.state = picking.intercompany_picking_id.state
+
+        return res
+
     def _action_done(self):
         for pick in self.filtered(
             lambda x: x.location_dest_id.usage == "customer"
