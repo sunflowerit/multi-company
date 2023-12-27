@@ -36,16 +36,19 @@ class StockPicking(models.Model):
                         == ic_pick
                     ).mapped("move_line_ids")
                 )
-                if len(move_lines) != len(po_move_lines):
-                    note = (
+                if not len(move_lines) == len(po_move_lines):
+                    note = _(
                         "Mismatch between move lines with the "
-                        "corresponding  PO %(purchase)s for assigning "
-                        "quantities and lots from %(picking)s for product %(product)s"
-                    ) % {
-                        "purchase": purchase.name,
-                        "picking": pick.name,
-                        "product": move.product_id.name,
-                    }
+                        "corresponding PO %s for assigning "
+                        "quantities and lots from %s for product %s"
+                    ) % (purchase.name, pick.name, move.product_id.name)
+                    # Configurable parameter so we don't lock the picking validation
+                    if (
+                        not self.env["ir.config_parameter"]
+                        .sudo()
+                        .get_param("purchase_sale_inter_company.soft_picking_mismatch")
+                    ):
+                        raise UserError(note)
                     self.activity_schedule(
                         "mail.mail_activity_data_warning",
                         fields.Date.today(),
@@ -122,25 +125,6 @@ class StockPicking(models.Model):
                         record.sale_id,
                     )
         return res
-
-    @api.model
-    def _prepare_picking_line_data(self, src_picking, dest_picking):
-        self.ensure_one()
-        if self.check_all_done(src_picking):
-            for line in src_picking.sudo().move_ids_without_package:
-                line.write({"quantity_done": line.reserved_availability})
-        for src_line in src_picking.sudo().move_ids_without_package:
-            if (
-                src_line.product_id
-                in dest_picking.sudo().move_ids_without_package.mapped("product_id")
-                and src_line.quantity_done > 0
-            ):
-                dest_move = dest_picking.sudo().move_ids_without_package.filtered(
-                    lambda m: m.product_id == src_line.product_id
-                )
-                dest_move.write(
-                    {"quantity_done": dest_move.quantity_done + src_line.quantity_done}
-                )
 
     def _sync_receipt_with_delivery(self, dest_company, sale_order):
         self.ensure_one()
