@@ -138,6 +138,7 @@ Contributors
 * Ooops404 <info@ooops404.com>
 
   * Francesco Foresti <francesco.foresti@ooops404.com>
+  * Eduard Brahas <eduardbrhas@outlook.it>
 
 Maintainers
 ~~~~~~~~~~~
