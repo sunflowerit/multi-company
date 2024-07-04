@@ -139,10 +139,19 @@ class StockPicking(models.Model):
                 and record.picking_type_code == "outgoing"
             ):
                 if record.intercompany_picking_id:
-                    record._sync_receipt_with_delivery(
-                        dest_company,
-                        record.sale_id,
-                    )
+                    try:
+                        record._sync_receipt_with_delivery(
+                            dest_company,
+                            record.sale_id,
+                        )
+                    except Exception:
+                        if record.company_id.sync_picking_failure_action == "raise":
+                            raise
+                        else:
+                            record._notify_picking_problem(
+                                record.sale_id.auto_purchase_order_id
+                            )
+
         # if the flag is set, block the validation of the picking in the destination company
         if self.env.company.block_po_manual_picking_validation:
             for record in self:

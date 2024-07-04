@@ -25,6 +25,13 @@ class ResCompany(models.Model):
         help="Sync the receipt from the destination company with the "
         "delivery from the source company",
     )
+    sync_picking_failure_action = fields.Selection(
+        SELECTION_SYNC_FAILURE_ACTIONS,
+        string="On sync picking failure",
+        default="raise",
+        help="Pick action to perform on sync picking failure",
+    )
     block_po_manual_picking_validation = fields.Boolean(
         string="Block manual validation of picking in the destination company",
     )
+    notify_user_id = fields.Many2one("res.users", "User to Notify")
