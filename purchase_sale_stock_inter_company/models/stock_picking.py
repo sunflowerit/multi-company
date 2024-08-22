@@ -77,7 +77,6 @@ class StockPicking(models.Model):
                     )
         return super().button_validate()
 
-<<<<<<< HEAD:purchase_sale_stock_inter_company/models/stock_picking.py
     @api.model
     def _prepare_picking_line_data(self, src_picking, dest_picking):
         self.ensure_one()
@@ -97,10 +96,7 @@ class StockPicking(models.Model):
                     {"quantity_done": dest_move.quantity_done + src_line.quantity_done}
                 )
 
-    def _sync_receipt_with_delivery(self, dest_company, sale_order, src_pickings):
-=======
     def _sync_receipt_with_delivery(self, dest_company, sale_order):
->>>>>>> 9f678494 ([12.0][IMP] purchase_sale_inter_company: sync pickings):purchase_sale_inter_company/models/stock_picking.py
         self.ensure_one()
         intercompany_user = dest_company.intercompany_user_id
         purchase_order = sale_order.auto_purchase_order_id.sudo()
