@@ -66,7 +66,7 @@ class TestPurchaseSaleStockInterCompany(TestPurchaseSaleInterCompany):
             self.purchase_company_a.picking_type_id.warehouse_id.partner_id,
         )
         self.assertEqual(sale.warehouse_id, self.warehouse_c)
-    
+
     def test_confirm_several_picking(self):
         """
         Ensure that confirming several picking is not broken
