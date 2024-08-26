@@ -42,6 +42,20 @@ Imagine you have company A and company B in the same Odoo database:
 .. contents::
    :local:
 
+Use Cases / Context
+===================
+
+Imagine you have company A and company B in the same Odoo database:
+
+
+Company A purchases goods from company B.
+
+Company A will create a purchase order with company B as supplier.
+
+This module automates the creation of the sale order in company B with company A as customer.
+
+Receipt picking(s) created from Company A purchase are synced with quantities delivered in picking(s) by Company B sale.
+
 Installation
 ============
 
@@ -55,6 +69,16 @@ To configure this module, you need to:
 #. Select one of the companies.
 #. Go to the tab *Inter-Company* then the group *Purchase To Sale*.
 #. If you check the option *Sale Auto Validation* in the configuration of company B, then when you validate a *Purchase Order* in company A with company B as supplier, the *Sale Order* will be automatically validated in company B with company A as customer.
+
+Usage
+=====
+
+Create a purchase with Company A, setting Company B as vendor > confirm PO > a SO for Company B with customer Company A is created automatically.
+
+
+Validate SO for Company B > validate delivery picking > in PO for Company A, receipt picking is validated with quantities from Company B delivery picking.
+
+If backorders have been created from delivery picking, they will be synchronized to receipt picking.
 
 Known issues / Roadmap
 ======================

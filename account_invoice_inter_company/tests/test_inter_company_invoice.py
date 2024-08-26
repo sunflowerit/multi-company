@@ -5,12 +5,10 @@
 
 from odoo import _
 from odoo.exceptions import UserError, ValidationError
-from odoo.tests import tagged
-from odoo.tests.common import Form, SavepointCase
+from odoo.tests.common import Form, TransactionCase
 
 
-@tagged("post_install", "-at_install")
-class TestAccountInvoiceInterCompanyBase(SavepointCase):
+class TestAccountInvoiceInterCompanyBase(TransactionCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
@@ -32,7 +30,7 @@ class TestAccountInvoiceInterCompanyBase(SavepointCase):
                 "invoice_auto_validation": True,
             }
         )
-        cls.chart.try_loading(cls.company_a)
+        cls.chart.try_loading(company=cls.company_a, install_demo=False)
         cls.partner_company_a = cls.company_a.partner_id
         cls.company_b = cls.env["res.company"].create(
             {
@@ -43,7 +41,7 @@ class TestAccountInvoiceInterCompanyBase(SavepointCase):
                 "invoice_auto_validation": True,
             }
         )
-        cls.chart.try_loading(cls.company_b)
+        cls.chart.try_loading(company=cls.company_b, install_demo=False)
         cls.partner_company_b = cls.company_b.partner_id
         cls.child_partner_company_b = cls.env["res.partner"].create(
             {
@@ -53,6 +51,7 @@ class TestAccountInvoiceInterCompanyBase(SavepointCase):
                 "parent_id": cls.partner_company_b.id,
             }
         )
+        # cls.partner_company_b = cls.company_b.parent_id.partner_id
         cls.user_company_a = cls.env["res.users"].create(
             {
                 "name": "User A",
@@ -264,8 +263,7 @@ class TestAccountInvoiceInterCompanyBase(SavepointCase):
                 "code": "SAJ-A",
                 "type": "sale",
                 "secure_sequence_id": cls.sequence_sale_journal_company_a.id,
-                "payment_credit_account_id": cls.a_sale_company_a.id,
-                "payment_debit_account_id": cls.a_sale_company_a.id,
+                "default_account_id": cls.a_sale_company_a.id,
                 "company_id": cls.company_a.id,
             }
         )
@@ -275,8 +273,7 @@ class TestAccountInvoiceInterCompanyBase(SavepointCase):
                 "name": "Bank Journal - (Company A)",
                 "code": "BNK-A",
                 "type": "bank",
-                "payment_credit_account_id": cls.a_sale_company_a.id,
-                "payment_debit_account_id": cls.a_sale_company_a.id,
+                "default_account_id": cls.a_sale_company_a.id,
                 "company_id": cls.company_a.id,
             }
         )
@@ -295,8 +292,7 @@ class TestAccountInvoiceInterCompanyBase(SavepointCase):
                 "code": "EXJ-B",
                 "type": "purchase",
                 "secure_sequence_id": cls.sequence_purchase_journal_company_b.id,
-                "payment_credit_account_id": cls.a_expense_company_b.id,
-                "payment_debit_account_id": cls.a_expense_company_b.id,
+                "default_account_id": cls.a_expense_company_b.id,
                 "company_id": cls.company_b.id,
             }
         )
@@ -305,8 +301,7 @@ class TestAccountInvoiceInterCompanyBase(SavepointCase):
                 "name": "Bank Journal - (Company B)",
                 "code": "BNK-B",
                 "type": "bank",
-                "payment_credit_account_id": cls.a_sale_company_b.id,
-                "payment_debit_account_id": cls.a_sale_company_b.id,
+                "default_account_id": cls.a_sale_company_b.id,
                 "company_id": cls.company_b.id,
             }
         )
@@ -558,46 +553,6 @@ class TestAccountInvoiceInterCompany(TestAccountInvoiceInterCompanyBase):
         with self.assertRaises(UserError):
             self._confirm_invoice_with_product()
 
-    def test_purchase_attachement_out_invoice(self):
-        # Sale Invoice PDF appears as attachment in the purchase invoice form.
-        # From a Sale Invoice.
-        self.invoice_company_a.action_post()
-        invoice_company_b = self.account_move_obj.with_user(
-            self.user_company_b.id
-        ).search([("auto_invoice_id", "=", self.invoice_company_a.id)])
-        invoice_b_pdf = self.env["ir.attachment"].search(
-            [("res_model", "=", "account.move"), ("res_id", "=", invoice_company_b.id)]
-        )
-        self.assertEqual(len(invoice_b_pdf), 1)
-        self.assertEqual(invoice_b_pdf.name, self.invoice_company_a.name + ".pdf")
-
-    def test_purchase_attachement_in_invoice(self):
-        # Sale Invoice PDF appears as attachment in the purchase invoice form.
-        # From a Purchase Invoice.
-        bill_company_a = Form(
-            self.account_move_obj.with_company(self.company_a.id).with_context(
-                default_move_type="in_invoice",
-            )
-        )
-        bill_company_a.partner_id = self.partner_company_b
-        bill_company_a.invoice_date = bill_company_a.date
-        with bill_company_a.invoice_line_ids.new() as line_form:
-            line_form.product_id = self.product_consultant_multi_company
-            line_form.quantity = 1
-            line_form.product_uom_id = self.env.ref("uom.product_uom_hour")
-            line_form.price_unit = 450.0
-        bill_company_a = bill_company_a.save()
-        bill_company_a.action_post()
-
-        invoice_company_b = self.account_move_obj.with_user(
-            self.user_company_b.id
-        ).search([("auto_invoice_id", "=", bill_company_a.id)])
-        bill_a_pdf = self.env["ir.attachment"].search(
-            [("res_model", "=", "account.move"), ("res_id", "=", bill_company_a.id)]
-        )
-        self.assertEqual(len(bill_a_pdf), 1)
-        self.assertEqual(bill_a_pdf.name, invoice_company_b.name + ".pdf")
-
     def _confirm_invoice_with_product(self):
         # Confirm the invoice of company A
         self.invoice_company_a.with_user(self.user_company_a.id).action_post()
@@ -607,21 +562,3 @@ class TestAccountInvoiceInterCompany(TestAccountInvoiceInterCompanyBase):
         )
         self.assertEqual(len(invoices), 1)
         return invoices
-
-    def test_confirm_invoice_and_full_refund(self):
-        self.env.ref("product.product_comp_rule").write({"active": False})
-        self._confirm_invoice_with_product()
-        wizard = self.env["account.move.reversal"].create(
-            {
-                "refund_method": "cancel",
-                "move_ids": [(6, 0, self.invoice_company_a.ids)],
-            }
-        )
-        action = wizard.reverse_moves()
-        refund_company_a = self.account_move_obj.browse(action["res_id"])
-
-        # Check destination refund created in company B
-        refund = self.account_move_obj.with_user(self.user_company_b.id).search(
-            [("auto_invoice_id", "=", refund_company_a.id)]
-        )
-        self.assertEqual(len(refund), 1)

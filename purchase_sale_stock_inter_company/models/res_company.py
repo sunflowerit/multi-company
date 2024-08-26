@@ -21,4 +21,3 @@ class ResCompany(models.Model):
         help="Sync the receipt from the destination company with the "
         "delivery from the source company",
     )
-

@@ -3,7 +3,7 @@
 # Copyright 2018-2019 Tecnativa - Carlos Dauden
 # License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl).
 
-from odoo import _, api, fields, models
+from odoo import _, api, models
 from odoo.exceptions import UserError
 
 
@@ -11,14 +11,6 @@ class SaleOrder(models.Model):
     _inherit = "sale.order"
 
     def action_confirm(self):
-        for order in self.filtered("auto_purchase_order_id"):
-            po_company = order.sudo().auto_purchase_order_id.company_id
-            if not po_company.intercompany_overwrite_purchase_price:
-                order.assert_intercompany_prices_equal()
-            else:
-                for line in order.order_line.sudo():
-                    if line.auto_purchase_line_id:
-                        line.auto_purchase_line_id.price_unit = line.price_unit
         res = super().action_confirm()
         for sale_order in self.sudo():
             dest_company = sale_order.partner_id.ref_company_ids
@@ -165,7 +157,7 @@ class SaleOrder(models.Model):
                             "is not intercompany"
                         )
                         % sale_line.product_id.name
-                    )
+                    ) from None
 
     def _inter_company_create_purchase_order(self, dest_company):
         """Create a Purchase Order from the current SO (self)

@@ -2,7 +2,7 @@
 # Copyright 2018 Tecnativa - Pedro M. Baeza
 # License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl).
 
-from odoo import _, fields, models
+from odoo import _, api, fields, models
 from odoo.exceptions import UserError
 
 
@@ -29,16 +29,14 @@ class StockPicking(models.Model):
                 if not po_move_lines:
                     raise UserError(
                         _(
-                            "There's no corresponding line in PO %(po)s for assigning "
-                            "qty from %(pick_name)s for product %(product)s"
+                            "There's no corresponding line in PO %(purchase)s for assigning "
+                            "qty from %(picking)s for product %(product)s"
                         )
-                        % (
-                            {
-                                "po": purchase.name,
-                                "pick_name": pick.name,
-                                "product": move_line.product_id.name,
-                            }
-                        )
+                        % {
+                            "purchase": purchase.name,
+                            "picking": pick.name,
+                            "product": move_line.product_id.name,
+                        }
                     )
         return super()._action_done()
 

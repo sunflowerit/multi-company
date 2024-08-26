@@ -40,33 +40,33 @@ class TestPurchaseSaleStockInterCompany(TestPurchaseSaleInterCompany):
 
     def test_deliver_to_warehouse_a(self):
         self.purchase_company_a.picking_type_id = self.warehouse_a.in_type_id
-        sale = self._approve_po()
+        sale = self._approve_po(self.purchase_company_a)
         self.assertEqual(self.warehouse_a.partner_id, sale.partner_shipping_id)
 
     def test_deliver_to_warehouse_b(self):
         self.purchase_company_a.picking_type_id = self.warehouse_b.in_type_id
-        sale = self._approve_po()
+        sale = self._approve_po(self.purchase_company_a)
         self.assertEqual(self.warehouse_b.partner_id, sale.partner_shipping_id)
 
     def test_send_from_warehouse_c(self):
         self.company_b.warehouse_id = self.warehouse_c
-        sale = self._approve_po()
+        sale = self._approve_po(self.purchase_company_a)
         self.assertEqual(sale.warehouse_id, self.warehouse_c)
 
     def test_send_from_warehouse_d(self):
         self.company_b.warehouse_id = self.warehouse_d
-        sale = self._approve_po()
+        sale = self._approve_po(self.purchase_company_a)
         self.assertEqual(sale.warehouse_id, self.warehouse_d)
 
     def test_purchase_sale_stock_inter_company(self):
         self.purchase_company_a.notes = "Test note"
-        sale = self._approve_po()
+        sale = self._approve_po(self.purchase_company_a)
         self.assertEqual(
             sale.partner_shipping_id,
             self.purchase_company_a.picking_type_id.warehouse_id.partner_id,
         )
         self.assertEqual(sale.warehouse_id, self.warehouse_c)
-    
+
     def test_sync_picking(self):
         self.company_a.sync_picking = True
         self.company_b.sync_picking = True
