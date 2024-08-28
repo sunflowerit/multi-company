@@ -10,6 +10,7 @@ class StockPicking(models.Model):
     _inherit = "stock.picking"
 
     intercompany_picking_id = fields.Many2one(comodel_name="stock.picking", copy=False)
+    state = fields.Selection(recursive=True)
 
     @api.depends("intercompany_picking_id.state")
     def _compute_state(self):
