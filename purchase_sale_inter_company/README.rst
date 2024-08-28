@@ -37,10 +37,28 @@ Imagine you have company A and company B in the same Odoo database:
 * Company A will create a purchase order with company B as supplier.
 * This module automate the creation of the sale order in company B with company A as customer.
 
+It allows to create a sale order in company A from a purchase order in company B, and keep delivery/receipt pickings synced, including backorders.
+
+When Company A sends a product tracked by lot or serial number, a new lot/serial number with the same name is created in Company B to match it, if one doesn't already exist.
+
 **Table of contents**
 
 .. contents::
    :local:
+
+Use Cases / Context
+===================
+
+Imagine you have company A and company B in the same Odoo database:
+
+
+Company A purchases goods from company B.
+
+Company A will create a purchase order with company B as supplier.
+
+This module automates the creation of the sale order in company B with company A as customer.
+
+Receipt picking(s) created from Company A purchase are synced with quantities delivered in picking(s) by Company B sale.
 
 Installation
 ============
@@ -55,6 +73,16 @@ To configure this module, you need to:
 #. Select one of the companies.
 #. Go to the tab *Inter-Company* then the group *Purchase To Sale*.
 #. If you check the option *Sale Auto Validation* in the configuration of company B, then when you validate a *Purchase Order* in company A with company B as supplier, the *Sale Order* will be automatically validated in company B with company A as customer.
+
+Usage
+=====
+
+Create a purchase with Company A, setting Company B as vendor > confirm PO > a SO for Company B with customer Company A is created automatically.
+
+
+Validate SO for Company B > validate delivery picking > in PO for Company A, receipt picking is validated with quantities from Company B delivery picking.
+
+If backorders have been created from delivery picking, they will be synchronized to receipt picking.
 
 Known issues / Roadmap
 ======================
@@ -105,6 +133,12 @@ Contributors
 * `Camptocamp <https://www.camptocamp.com>`:
 
   * Maksym Yankin <maksym.yankin@camptocamp.com>
+  * Alessandro Uffreduzzi <alessandro.uffreduzzi@pytech.it>
+
+* Ooops404 <info@ooops404.com>
+
+  * Francesco Foresti <francesco.foresti@ooops404.com>
+  * Eduard Brahas <eduardbrhas@outlook.it>
 
 Maintainers
 ~~~~~~~~~~~
@@ -118,6 +152,17 @@ This module is maintained by the OCA.
 OCA, or the Odoo Community Association, is a nonprofit organization whose
 mission is to support the collaborative development of Odoo features and
 promote its widespread use.
+
+.. |maintainer-aleuffre| image:: https://github.com/aleuffre.png?size=40px
+    :target: https://github.com/aleuffre
+    :alt: aleuffre
+.. |maintainer-renda-dev| image:: https://github.com/renda-dev.png?size=40px
+    :target: https://github.com/renda-dev
+    :alt: renda-dev
+
+Current `maintainers <https://odoo-community.org/page/maintainer-role>`__:
+
+|maintainer-aleuffre| |maintainer-renda-dev| 
 
 This module is part of the `OCA/multi-company <https://github.com/OCA/multi-company/tree/15.0/purchase_sale_inter_company>`_ project on GitHub.
 

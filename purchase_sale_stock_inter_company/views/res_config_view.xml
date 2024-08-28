@@ -16,6 +16,43 @@
                     domain="[('company_id', '=', company_id)]"
                 />
             </xpath>
+            <xpath expr="//div[@id='inter_company_so_from_po']" position='after'>
+                <field name="sync_picking" class="oe_inline" />
+                    <label
+                        string="Sync picking"
+                        class="o_light_label"
+                        for="sync_picking"
+                    />
+                    <br />
+                    <field name="sync_picking_failure_action" class="oe_inline" />
+                    <label
+                        string="On sync picking failure"
+                        class="o_light_label"
+                        for="sync_picking_failure_action"
+                    />
+                    <br />
+                    <label
+                        for="notify_user_id"
+                        class="o_light_label"
+                        attrs="{'invisible': [('sync_picking_failure_action', '!=', 'notify')]}"
+                    />
+                    <field
+                        name="notify_user_id"
+                        attrs="{'invisible': [('sync_picking_failure_action', '!=', 'notify')], 'required': [('sync_picking_failure_action', '=', 'notify')]}"
+                        class="oe_inline"
+                    />
+                    <br />
+                    <field
+                        name="block_po_manual_picking_validation"
+                        class="oe_inline"
+                    />
+                    <label
+                        string="Block PO manual picking validation"
+                        class="o_light_label"
+                        for="block_po_manual_picking_validation"
+                    />
+                    <br />
+            </xpath>
         </field>
     </record>
 </odoo>

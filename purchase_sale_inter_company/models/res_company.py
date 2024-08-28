@@ -6,8 +6,8 @@
 from odoo import fields, models
 
 
-class ResCompany(models.Model):
 
+class ResCompany(models.Model):
     _inherit = "res.company"
 
     so_from_po = fields.Boolean(
