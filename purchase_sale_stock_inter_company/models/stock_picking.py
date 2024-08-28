@@ -61,9 +61,13 @@ class StockPicking(models.Model):
                 if not len(move_lines) == len(po_move_lines):
                     note = _(
                         "Mismatch between move lines with the "
-                        "corresponding PO %s for assigning "
-                        "quantities and lots from %s for product %s"
-                    ) % (purchase.name, pick.name, move.product_id.name)
+                        "corresponding PO %(purchase)s for assigning "
+                        "quantities and lots from %(picking)s for product %(product)s"
+                    ) % {
+                        "purchase": purchase.name,
+                        "picking": pick.name,
+                        "product": move.product_id.name,
+                    }
                     # Configurable parameter so we don't lock the picking validation
                     if (
                         not self.env["ir.config_parameter"]
