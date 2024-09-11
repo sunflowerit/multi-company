@@ -150,12 +150,11 @@ class StockPicking(models.Model):
                     )
                 for ml, po_ml in zip(move_lines, po_move_lines):
                     pick._sync_lots(ml, po_ml)
-
         except Exception:
             if self.env.company.sync_picking_failure_action == "raise":
                 raise
             else:
-                self._notify_picking_problem(purchase)
+                self._notify_picking_problem(purchase, additional_note=str(e))
 
     def _notify_picking_problem(self, purchase, additional_note=False):
         self.ensure_one()
