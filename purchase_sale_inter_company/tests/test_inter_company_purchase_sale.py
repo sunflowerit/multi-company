@@ -84,6 +84,7 @@ class TestPurchaseSaleInterCompany(TestAccountInvoiceInterCompanyBase):
                 "type": "product",
                 "tracking": "serial",
                 "categ_id": cls.env.ref("product.product_category_all").id,
+                "company_id": None,
             }
         )
 
@@ -414,8 +415,8 @@ class TestPurchaseSaleInterCompany(TestAccountInvoiceInterCompanyBase):
     def test_sync_picking_no_backorder(self):
         self.company_a.sync_picking = True
         self.company_b.sync_picking = True
-        self.company_a.sync_picking_state = True
-        self.company_b.sync_picking_state = True
+        self.company_a.sync_picking_state = False
+        self.company_b.sync_picking_state = False
 
         purchase = self._create_purchase_order(
             self.partner_company_b, self.consumable_product
@@ -429,7 +430,7 @@ class TestPurchaseSaleInterCompany(TestAccountInvoiceInterCompanyBase):
         so_picking_id = sale.picking_ids
 
         # check po_picking state
-        self.assertEqual(po_picking_id.state, "waiting")
+        self.assertEqual(po_picking_id.state, "assigned")
 
         # validate the SO picking
         so_picking_id.move_lines.quantity_done = 2
@@ -502,6 +503,7 @@ class TestPurchaseSaleInterCompany(TestAccountInvoiceInterCompanyBase):
         Test that the lot is synchronized on the moves
         by searching or creating a new lot in the company of destination
         """
+        """ Sad flow for lot picking """
         # lot 3 already exists in company_a
         serial_3_company_a = self._create_serial_and_quant(
             self.stockable_product_serial,
@@ -511,8 +513,10 @@ class TestPurchaseSaleInterCompany(TestAccountInvoiceInterCompanyBase):
         )
         self.company_a.sync_picking = True
         self.company_b.sync_picking = True
-        self.company_a.sync_picking_state = True
-        self.company_b.sync_picking_state = True
+        self.company_a.sync_picking_state = False
+        self.company_b.sync_picking_state = False
+        self.company_a.sync_picking_failure_action = "raise"
+        self.company_b.sync_picking_failure_action = "raise"
 
         purchase = self._create_purchase_order(
             self.partner_company_b,
@@ -643,6 +647,78 @@ class TestPurchaseSaleInterCompany(TestAccountInvoiceInterCompanyBase):
         self.assertEqual(return_pick_po.state, "done")
         self._assert_picking_equal_lines(return_pick_po, return_pick)
         self._assert_picking_equal_lots(return_pick_po, return_pick)
+
+    def test_sync_picking_lot_fail(self):
+        """Sad flow for lot picking"""
+        self.company_a.sync_picking = True
+        self.company_b.sync_picking = True
+        self.company_a.sync_picking_state = False
+        self.company_b.sync_picking_state = False
+
+        purchase = self._create_purchase_order(
+            self.partner_company_b,
+            self.stockable_product_serial + self.consumable_product,
+        )
+        sale = self._approve_po(purchase)
+
+        # validate the SO picking
+        po_picking_id = purchase.picking_ids
+        so_picking_id = sale.picking_ids
+
+        so_moves = so_picking_id.move_lines
+        so_moves[1].quantity_done = 2
+        so_moves[0].move_line_ids = [
+            (
+                0,
+                0,
+                {
+                    "location_id": so_moves[0].location_id.id,
+                    "location_dest_id": so_moves[0].location_dest_id.id,
+                    "product_id": self.stockable_product_serial.id,
+                    "product_uom_id": self.stockable_product_serial.uom_id.id,
+                    "qty_done": 1,
+                    "lot_id": self.serial_1.id,
+                    "picking_id": so_picking_id.id,
+                },
+            ),
+            (
+                0,
+                0,
+                {
+                    "location_id": so_moves[0].location_id.id,
+                    "location_dest_id": so_moves[0].location_dest_id.id,
+                    "product_id": self.stockable_product_serial.id,
+                    "product_uom_id": self.stockable_product_serial.uom_id.id,
+                    "qty_done": 1,
+                    "lot_id": self.serial_3.id,
+                    "picking_id": so_picking_id.id,
+                },
+            ),
+        ]
+        wizard_data = so_picking_id.with_user(self.user_company_b).button_validate()
+        wizard = (
+            self.env["stock.backorder.confirmation"]
+            .with_context(**wizard_data.get("context"))
+            .create({})
+        )
+        wizard.with_user(self.user_company_b).process()
+        self.assertEqual(so_picking_id.state, "done")
+        self.assertNotEqual((sale.picking_ids - so_picking_id).state, "done")
+        self._assert_picking_equal_lots(so_picking_id, po_picking_id)
+
+        # A backorder should have been made for both
+        so_back_pick_id = sale.picking_ids - so_picking_id
+        po_back_pick_id = purchase.picking_ids - po_picking_id
+        self.assertEqual(len(so_back_pick_id), 1)
+        self.assertEqual(len(po_back_pick_id), 1)
+
+        # TODO: somehow simulate a failure here, eg by inserting extra stock move lines on
+        # the SO side that don't exist on the PO side
+        # Then test whether not only the picking doesn't go to done, but also,
+        # it refrains from creating the lot_ids on the PO company side,
+        # So that user can do it manually again without running into 'already exist' error
+        # self.assertEqual(so_picking_id.state, "done")
+        # self.assertEqual(po_picking_id.state, "done")
 
     def test_sync_picking_same_product_multiple_lines(self):
         """
@@ -805,6 +881,8 @@ class TestPurchaseSaleInterCompany(TestAccountInvoiceInterCompanyBase):
     def test_notify_picking_problem(self):
         self.company_a.sync_picking = True
         self.company_b.sync_picking = True
+        self.company_a.sync_picking_state = False
+        self.company_b.sync_picking_state = False
         self.company_a.sync_picking_failure_action = "notify"
         self.company_b.sync_picking_failure_action = "notify"
         self.company_a.notify_user_id = self.user_company_a
@@ -845,9 +923,15 @@ class TestPurchaseSaleInterCompany(TestAccountInvoiceInterCompanyBase):
             warning_activity.user_id, so_picking_id.company_id.notify_user_id
         )
 
+        # The PO picking will not even be assigned
+        po_picking_id = purchase.picking_ids
+        self.assertEqual(po_picking_id.state, "assigned")
+
     def test_notify_picking_problem_dest_company(self):
         self.company_a.sync_picking = True
         self.company_b.sync_picking = True
+        self.company_a.sync_picking_state = False
+        self.company_b.sync_picking_state = False
         self.company_a.sync_picking_failure_action = "notify"
         self.company_b.sync_picking_failure_action = "notify"
         self.company_a.notification_side = "po"
@@ -882,9 +966,15 @@ class TestPurchaseSaleInterCompany(TestAccountInvoiceInterCompanyBase):
         # Test the user assigned to the activity
         self.assertEqual(warning_activity.user_id, self.user_company_a)
 
+        # The picking should still be in confirmed state
+        po_picking_id = purchase.picking_ids
+        self.assertEqual(po_picking_id.state, "assigned")
+
     def test_raise_picking_problem(self):
         self.company_a.sync_picking = True
         self.company_b.sync_picking = True
+        self.company_a.sync_picking_state = False
+        self.company_b.sync_picking_state = False
         self.company_a.sync_picking_failure_action = "raise"
         self.company_b.sync_picking_failure_action = "raise"
 
