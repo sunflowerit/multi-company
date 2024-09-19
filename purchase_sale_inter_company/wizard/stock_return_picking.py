@@ -1,6 +1,6 @@
 import logging
 
-from odoo import SUPERUSER_ID, _, fields, models
+from odoo import _, models
 from odoo.exceptions import UserError
 
 _logger = logging.getLogger(__name__)
@@ -34,17 +34,8 @@ class ReturnPicking(models.TransientModel):
                 "counterpart in company {}: {}. This could not be automatically returned; "
                 "please take care to do this manually."
             ).format(ic_pick.company_id.name, ic_pick.name, pick.name)
-            _logger.warning(note)
-            pick.activity_schedule(
-                "mail.mail_activity_data_todo",
-                fields.Date.today(),
-                note=note,
-                # Try to notify someone relevant
-                user_id=(
-                    pick.sale_id.user_id.id
-                    or pick.sale_id.team_id.user_id.id
-                    or SUPERUSER_ID,
-                ),
+            self._notify_picking_problem(
+                pick.sale_id.auto_purchase_order_id, additional_note=note
             )
             return res
 
@@ -71,17 +62,8 @@ class ReturnPicking(models.TransientModel):
                 "counterpart in company {}: {}. This could not be automatically returned; "
                 "please take care to do this manually."
             ).format(ic_pick.company_id.name, ic_pick.name, pick.name)
-            _logger.warning(note)
-            pick.activity_schedule(
-                "mail.mail_activity_data_todo",
-                fields.Date.today(),
-                note=note,
-                # Try to notify someone relevant
-                user_id=(
-                    pick.sale_id.user_id.id
-                    or pick.sale_id.team_id.user_id.id
-                    or SUPERUSER_ID,
-                ),
+            self._notify_picking_problem(
+                pick.sale_id.auto_purchase_order_id, additional_note=note
             )
             return res
 
