@@ -40,26 +40,6 @@ class StockPicking(models.Model):
 
         return res
 
-    def _warn_move_line_mismatch(self, ic_pick, product, ml, po_ml):
-        self.ensure_one()
-        note = _(
-            "Mismatch between move lines (%s vs %s) with the "
-            "corresponding PO picking %s for assigning "
-            "quantities and lots from %s for product %s"
-        ) % (len(ml), len(po_ml), ic_pick.name, self.name, product.name)
-        _logger.warning(note)
-        self.activity_schedule(
-            "mail.mail_activity_data_warning",
-            fields.Date.today(),
-            note=note,
-            # Try to notify someone relevant
-            user_id=(
-                self.sale_id.user_id.id
-                or self.sale_id.team_id.user_id.id
-                or SUPERUSER_ID,
-            ),
-        )
-
     def _sync_lots(self, ml, po_ml):
         lot_id = ml.lot_id
         if not lot_id:
@@ -112,25 +92,19 @@ class StockPicking(models.Model):
                         )
                         continue
                     # Delete excess stock.move.line on PO side
-                    if len(po_move_lines) > len(move_lines):
-                        po_move_lines[len(move_lines) :].unlink()
-                    for ml, po_ml in zip(move_lines, po_move_lines):
-                        pick._sync_lots(ml, po_ml)
-                        po_ml.qty_done = ml.qty_done
-                    dest_move_qty_update_dict.setdefault(po_move, 0.0)
-                    dest_move_qty_update_dict[po_move] += move.quantity_done
-                for dest_move, qty_done in dest_move_qty_update_dict.items():
-                    dest_move.quantity_done = qty_done
+                    self._unlink_move_lines(po_move_lines, move_lines)
+                    self._update_move_line_quantity_done(
+                        pick,
+                        move,
+                        po_move,
+                        po_move_lines,
+                        move_lines,
+                        dest_move_qty_update_dict,
+                    )
+                self._update_move_quantity_done(dest_move_qty_update_dict)
                 ic_pick._action_done()
             except Exception as e:
-                if dest_company.sync_picking_failure_action == "raise":
-                    raise
-                else:
-                    pick._notify_picking_problem(
-                        pick.sale_id.auto_purchase_order_id,
-                        additional_note=str(e),
-                    )
-
+                self._action_when_exception(pick, dest_company, e)
         # sync lots for move lines on pickings
         for pick in self.filtered(
             lambda x: x.location_dest_id.usage == "customer"
@@ -174,18 +148,19 @@ class StockPicking(models.Model):
                         )
                         continue
                     # Delete excess stock.move.line on PO side
-                    if len(po_move_lines) > len(move_lines):
-                        po_move_lines[len(move_lines) :].unlink()
-                    for ml, po_ml in zip(move_lines, po_move_lines):
-                        pick._sync_lots(ml, po_ml)
-                        po_ml.qty_done = ml.qty_done
-                    dest_move_qty_update_dict.setdefault(po_move, 0.0)
-                    dest_move_qty_update_dict[po_move] += move.quantity_done
+                    self._unlink_move_lines(po_move_lines, move_lines)
+                    self._update_move_line_quantity_done(
+                        pick,
+                        move,
+                        po_move,
+                        po_move_lines,
+                        move_lines,
+                        dest_move_qty_update_dict,
+                    )
                 # formerly in sync_receipt_to_delivery
                 # "No backorder" case splits SO moves in two while PO stays the same.
                 # Aggregating writes per each PO move makes sure qty does not get overwritten
-                for dest_move, qty_done in dest_move_qty_update_dict.items():
-                    dest_move.quantity_done = qty_done
+                self._update_move_quantity_done(dest_move_qty_update_dict)
                 ic_pick.with_context(
                     cancel_backorder=bool(
                         self.env.context.get("picking_ids_not_to_backorder")
@@ -193,15 +168,60 @@ class StockPicking(models.Model):
                 )._action_done()
 
             except Exception as e:
-                if dest_company.sync_picking_failure_action == "raise":
-                    raise
-                else:
-                    pick._notify_picking_problem(
-                        pick.sale_id.auto_purchase_order_id,
-                        additional_note=str(e),
-                    )
-
+                self._action_when_exception(pick, dest_company, e)
         return ret
+
+    def _unlink_move_lines(self, purchase_move_lines, picking_move_lines):
+        if len(purchase_move_lines) > len(picking_move_lines):
+            purchase_move_lines[len(picking_move_lines) :].unlink()
+
+    def _update_move_line_quantity_done(
+        self,
+        picking,
+        stock_move,
+        po_move,
+        purchase_move_lines,
+        picking_move_lines,
+        move_dict,
+    ):
+        for ml, po_ml in zip(picking_move_lines, purchase_move_lines):
+            picking._sync_lots(ml, po_ml)
+            po_ml.qty_done = ml.qty_done
+        move_dict.setdefault(po_move, 0.0)
+        move_dict[po_move] += stock_move.quantity_done
+
+    def _update_move_quantity_done(self, move_dict):
+        for dest_move, qty_done in move_dict.items():
+            dest_move.quantity_done = qty_done
+
+    def _action_when_exception(self, picking, company, exception):
+        if company.sync_picking_failure_action == "raise":
+            raise exception
+        else:
+            picking._notify_picking_problem(
+                picking.sale_id.auto_purchase_order_id,
+                additional_note=str(exception),
+            )
+
+    def _warn_move_line_mismatch(self, ic_pick, product, ml, po_ml):
+        self.ensure_one()
+        note = _(
+            "Mismatch between move lines (%s vs %s) with the "
+            "corresponding PO picking %s for assigning "
+            "quantities and lots from %s for product %s"
+        ) % (len(ml), len(po_ml), ic_pick.name, self.name, product.name)
+        _logger.warning(note)
+        self.activity_schedule(
+            "mail.mail_activity_data_warning",
+            fields.Date.today(),
+            note=note,
+            # Try to notify someone relevant
+            user_id=(
+                self.sale_id.user_id.id
+                or self.sale_id.team_id.user_id.id
+                or SUPERUSER_ID,
+            ),
+        )
 
     def _notify_picking_problem(self, purchase, additional_note=False):
         self.ensure_one()
