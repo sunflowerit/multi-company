@@ -90,7 +90,8 @@ class TestPurchaseSaleInterCompanyMrp(TestPurchaseSaleInterCompany):
     def test_sync_picking_mrp(self):
         self.company_a.sync_picking = True
         self.company_b.sync_picking = True
-
+        self.company_a.sync_picking_state = True
+        self.company_b.sync_picking_state = True
         purchase = self._create_purchase_order(self.partner_company_b, self.kit_product)
         sale = self._approve_po(purchase)
 
@@ -102,6 +103,7 @@ class TestPurchaseSaleInterCompanyMrp(TestPurchaseSaleInterCompany):
         so_picking_id = sale.picking_ids
         self.assertTrue(po_picking_id)
         self.assertTrue(so_picking_id)
+        self.assertEqual(po_picking_id.intercompany_picking_id, so_picking_id)
 
         # kits are expanded
         self.assertGreater(len(po_picking_id.move_lines), len(purchase.order_line))
