@@ -49,6 +49,9 @@ class InterCompanyRulesConfig(models.TransientModel):
     )
     sync_picking_failure_action = fields.Selection(
         related="company_id.sync_picking_failure_action",
+    )
+    sync_picking_state = fields.Boolean(
+        related="company_id.sync_picking_state",
         readonly=False,
     )
     block_po_manual_picking_validation = fields.Boolean(
@@ -60,4 +63,7 @@ class InterCompanyRulesConfig(models.TransientModel):
         related="company_id.notify_user_id",
         help="User to notify incase of sync picking failure.",
         readonly=False,
+    )
+    notification_side = fields.Selection(
+        related="company_id.notification_side", string="Notify", readonly=False
     )

@@ -47,7 +47,19 @@ class ResCompany(models.Model):
         default="raise",
         help="Pick action to perform on sync picking failure",
     )
+    sync_picking_state = fields.Boolean(
+        string="Sync the receipt state with the delivery state",
+        default=lambda p: p.sync_picking,
+        help="State of receipt picking syncs with state of the delivery "
+        "from the source company. Note this disallows user to manually "
+        "correct or change a picking that did not sync properly.",
+    )
     block_po_manual_picking_validation = fields.Boolean(
         string="Block manual validation of picking in the destination company",
     )
     notify_user_id = fields.Many2one("res.users", "User to Notify")
+    notification_side = fields.Selection(
+        [("so", "Sale Order Source Company"), ("po", "Purchase Destination Company")],
+        default="so",
+        help="Select which Company side to notify",
+    )
