@@ -34,7 +34,7 @@ class ReturnPicking(models.TransientModel):
                 "counterpart in company {}: {}. This could not be automatically returned; "
                 "please take care to do this manually."
             ).format(ic_pick.company_id.name, ic_pick.name, pick.name)
-            self._notify_picking_problem(
+            pick._notify_picking_problem(
                 pick.sale_id.auto_purchase_order_id, additional_note=note
             )
             return res
@@ -62,7 +62,7 @@ class ReturnPicking(models.TransientModel):
                 "counterpart in company {}: {}. This could not be automatically returned; "
                 "please take care to do this manually."
             ).format(ic_pick.company_id.name, ic_pick.name, pick.name)
-            self._notify_picking_problem(
+            pick._notify_picking_problem(
                 pick.sale_id.auto_purchase_order_id, additional_note=note
             )
             return res
